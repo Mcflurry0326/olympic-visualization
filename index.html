@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Visualization For Quesition 1 </title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/topojson@3"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #f9f9f9;
+    }
+    #map {
+      width: 96%;
+      margin: 2% auto;
+    }
+    #chart {
+      width: 96%;
+      margin: 2% auto;
+    }
+    #map2 {
+      width: 96%;
+      margin: 2% auto;
+      border-top: 1px solid #ccc;
+    }
+    #map2 svg {
+      width: 100%;
+      height: 500px;
+    }
+    #map-controls {
+      padding: 15px 20px;
+      background: linear-gradient(to right, #ece9e6, #ffffff);
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      width: 96%;
+      margin: 10px auto;
+    }
+    #map-controls label {
+      margin-right: 5px;
+      font-weight: bold;
+      color: #333;
+    }
+    #map-controls select, #medal {
+      padding: 6px 12px;
+      font-size: 14px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      background: #fff;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+      transition: border-color 0.2s ease;
+    }
+    #map-controls select:focus, #medal:focus {
+      border-color: #007bff;
+      outline: none;
+    }
+    svg {
+      background: #ffffff;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      border-radius: 10px;
+    }
+    .tooltip {
+      position: absolute;
+      background-color: rgba(0,0,0,0.7);
+      color: white;
+      padding: 6px 10px;
+      border-radius: 4px;
+      pointer-events: none;
+      font-size: 14px;
+      box-shadow: 0px 0px 5px rgba(0,0,0,0.3);
+      font-weight: 500;
+    }
+    .country {
+      fill: #ccc;
+      stroke: #fff;
+      stroke-width: 0.5;
+      cursor: pointer;
+    }
+    .country.selected {
+      fill: #ff8c00;
+      stroke: #222;
+      stroke-width: 1;
+    }
+    .country:hover {
+      fill: #ffd54f;
+    }
+    .medal-line {
+      transition: stroke-width 0.3s ease, opacity 0.3s ease;
+    }
+    .medal-point {
+      transition: r 0.2s ease;
+    }
+    @keyframes glowBorder {
+      0% { stroke-width: 2.5; stroke: #ffd700; opacity: 1; }
+      50% { stroke-width: 4; stroke: #fff176; opacity: 0.7; }
+      100% { stroke-width: 2.5; stroke: #ffd700; opacity: 1; }
+    }
+    .country2.glow {
+      animation: glowBorder 1.5s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="chart">
+    <h2>Olympic Performances Over Last 10 Editions</h2>
+    <label for="medal"><strong>Select medal type:</strong></label>
+    <select id="medal">
+      <option value="Total">Total</option>
+      <option value="Gold">Gold</option>
+      <option value="Silver">Silver</option>
+      <option value="Bronze">Bronze</option>
+    </select>
+    <svg width="850" height="500"></svg>
+  </div>
+  <div id="map-controls">
+    <div>
+      <label for="yearSelect">Year:</label>
+      <select id="yearSelect"></select>
+    </div>
+    <div>
+      <label for="medalType2">Medal Type:</label>
+      <select id="medalType2">
+        <option value="Total">Total</option>
+        <option value="Gold">Gold</option>
+        <option value="Silver">Silver</option>
+        <option value="Bronze">Bronze</option>
+      </select>
+    </div>
+  </div>
+  <div id="map2"><svg></svg></div>
+  <div class="tooltip" style="opacity: 0;"></div>
+  <div id="notesBox" style="position: fixed; top: 80px; right: 20px; width: 280px; font-family: sans-serif; line-height: 1.6; background: #fefefe; padding: 16px; border-left: 5px solid #007acc; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 9999; max-height: 80vh; overflow-y: auto;">
+    <button onclick="toggleNotes()" style="position: absolute; top: 6px; right: 6px; background: #007acc; color: white; border: none; padding: 4px 8px; font-size: 12px; border-radius: 4px; cursor: pointer;">Hide</button>
+    <h3 style="margin-top: 0;"> Notes:</h3>
+    <ul style="padding-left: 20px;">
+      <li>The data used in this visualization is derived from the Olympic dataset provided by King's College London (KCL). I processed and cleaned the raw data using Python, aggregating medal counts (Gold, Silver, Bronze, and Total) by country and year. During preprocessing, I addressed several inconsistencies in the dataset: for example, I merged entries for the same country listed under different team variants (e.g., “China-1”, “China-2”), ensured that medals from team sports were not overcounted for multiple athletes, and standardized country codes where historical shifts occurred (such as “RUS” to “ROC”). Additionally, I manually constructed a mapping table to align NOC codes with numerical country identifiers required for geospatial rendering on the world map. The resulting dataset provides a consistent and accurate basis for exploring longitudinal medal trends in the web-based D3 visualization.</li>
+      <li>This visualization includes multiple user interaction features.</li>
+      <li>Click on countries in the top map to add/remove them from the line chart.</li>
+      <li>Use the dropdown menus to explore different medal types and years.</li>
+      <li>Countries with the highest medal counts (top5) are highlighted on the bottom map.</li>
+      <li>Hover over countries in either map to view details.</li>
+    </ul>
+  </div>
+  
+  <script>
+  function toggleNotes() {
+    const box = document.getElementById("notesBox");
+    if (box.style.display === "none") {
+      box.style.display = "block";
+    } else {
+      box.style.display = "none";
+    }
+  }
+  </script>
+  
+  <button onclick="toggleNotes()" id="showNotesBtn" style="position: fixed; bottom: 20px; right: 20px; background: #007acc; color: white; border: none; padding: 6px 10px; font-size: 14px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.2); display: none; z-index: 9999;">Show Notes</button>
+  
+  <script>
+  function toggleNotes() {
+    const box = document.getElementById("notesBox");
+    const btn = document.getElementById("showNotesBtn");
+    if (box.style.display === "none") {
+      box.style.display = "block";
+      btn.style.display = "none";
+    } else {
+      box.style.display = "none";
+      btn.style.display = "block";
+    }
+  }
+  </script>
+
+
+
+
+
+
+
+
+  <script>
+    const width = 960;
+    const height = 500;
+    const nocMap = {
+      "156": "CHN",
+        "840": "USA",
+        "826": "GBR",
+        "643": "RUS",
+        "124": "CAN",
+        "356": "IND",
+        "250": "FRA",
+        "276": "GER",
+        "380": "ITA",
+        "392": "JPN",
+        "528": "NED",
+        "554": "NZL",
+        "578": "NOR",
+        "752": "SWE",
+        "756": "SUI",
+        "036": "AUS",
+        "076": "BRA",
+        "156": "CHN",
+        "203": "CZE",
+        "208": "DEN",
+        "300": "GRE",
+        "348": "HUN",
+        "376": "ISR",
+        "417": "KGZ",
+        "410": "KOR",
+        "428": "LVA",
+        "440": "LTU",
+        "458": "MAS",
+        "484": "MEX",
+        "496": "MGL",
+        "498": "MDA",
+        "504": "MAR",
+        "642": "ROU",
+        "688": "SRB",
+        "702": "SGP",
+        "703": "SVK",
+        "705": "SVN",
+        "710": "RSA",
+        "724": "ESP",
+        "764": "THA",
+        "784": "UAE",
+        "788": "TUN",
+        "792": "TUR",
+        "804": "UKR",
+        "860": "UZB",
+        "862": "VEN",
+        "887": "YEM",
+        "894": "ZAM",
+  "716": "ZIM",
+  "004": "AFG",
+  "008": "ALB",
+  "012": "ALG",
+  "020": "AND",
+  "024": "AGO",
+  "032": "ARG",
+  "044": "BHS",
+  "050": "BGD",
+  "051": "ARM",
+  "052": "BRB",
+  "056": "BEL",
+  "068": "BOL",
+  "070": "BIH",
+  "072": "BWA",
+  "100": "BGR",
+  "104": "MMR",
+  "112": "BLR",
+  "120": "CMR",
+  "152": "CHL",
+  "170": "COL",
+  "178": "COG",
+  "188": "CRI",
+  "191": "HRV",
+  "196": "CYP",
+  "231": "ETH",
+  "233": "EST",
+  "242": "FJI",
+  "246": "FIN",
+  "288": "GHA",
+  "308": "GRD",
+  "320": "GTM",
+  "324": "GIN",
+  "332": "HTI",
+  "340": "HND",
+  "368": "IRQ",
+  "384": "CIV",
+  "398": "KAZ",
+  "400": "JOR",
+  "414": "KWT",
+  "426": "LSO",
+  "430": "LBR",
+  "454": "MWI",
+  "466": "MLI",
+  "470": "MLT",
+  "478": "MRT",
+  "480": "MUS",
+  "496": "MGL",
+  "504": "MAR",
+  "524": "NEP",
+  "528": "NED",
+  "566": "NGR",
+  "586": "PAK",
+  "600": "PRY",
+  "604": "PER",
+  "608": "PHI",
+  "620": "PRT",
+  "643": "RUS",
+  "682": "KSA",
+  "686": "SEN",
+  "706": "SOM",
+  "740": "SUR",
+  "764": "THA",
+  "768": "TGO",
+  "784": "UAE",
+  "788": "TUN",
+  "792": "TUR",
+  "800": "UGA",
+  "834": "TZA",
+  "854": "BFA",
+  "858": "URY",
+  "860": "UZB",
+  "862": "VEN",
+  "887": "YEM",
+  "894": "ZAM",
+  "716": "ZIM",
+  "072": "BOT",
+  "854": "BUR",
+  "262": "DJI",
+  "818": "EGY",
+"232": "ERI",
+"266": "GAB",
+"404": "KEN",
+"508": "MOZ",
+"480": "MRI",
+"516": "NAM",
+"566": "NIG",
+"729": "SUD",
+"768": "TOG",
+"031": "AZE",
+"040": "AUT",
+"060": "BER",
+"096": "BRN",
+"108": "BDI",
+"132": "CPV",
+"152": "CHI",
+"158": "TPE",
+"188": "CRC",
+"192": "CUB",
+"200": "TCH",
+"212": "DMA",
+"214": "DOM",
+"218": "ECU",
+"232": "ERI",
+"262": "DJI",
+"266": "GAB",
+"268": "EUN",  // OR GEO
+"278": "GDR",
+"280": "FRG",
+"308": "GRN",
+"308": "GRN",
+"344": "HKG",
+"352": "ISL",
+"356": "IND",
+"360": "INA",
+"372": "IRL",
+"388": "JAM",
+"404": "KEN",
+"408": "PRK",
+"499": "MNE",
+"508": "MOZ",
+"516": "NAM",
+"530": "AHO",
+"591": "PAN",
+"616": "POL",
+"630": "PUR",
+"634": "QAT",
+"662": "LCA",
+"674": "SMR",
+"704": "VIE",
+"760": "SYR",
+"762": "TJK",
+"780": "TTO",
+"795": "TKM",
+"807": "MKD",
+"810": "URS",
+"818": "EGY",
+"850": "ISV",
+"858": "URU",
+"890": "YUG",
+"891": "SCG",
+"997": "AIN",
+"998": "EOR",
+"999": "IOA"
+
+    };
+    const nocMap2 = {"156": "CHN",
+        "840": "USA",
+        "826": "GBR",
+        "643": "RUS",
+        "124": "CAN",
+        "356": "IND",
+        "250": "FRA",
+        "276": "GER",
+        "380": "ITA",
+        "392": "JPN",
+        "528": "NED",
+        "554": "NZL",
+        "578": "NOR",
+        "752": "SWE",
+        "756": "SUI",
+        "36": "AUS",
+        "76": "BRA",
+        "156": "CHN",
+        "203": "CZE",
+        "208": "DEN",
+        "300": "GRE",
+        "348": "HUN",
+        "376": "ISR",
+        "417": "KGZ",
+        "410": "KOR",
+        "428": "LVA",
+        "440": "LTU",
+        "458": "MAS",
+        "484": "MEX",
+        "496": "MGL",
+        "498": "MDA",
+        "504": "MAR",
+        "642": "ROU",
+        "688": "SRB",
+        "702": "SGP",
+        "703": "SVK",
+        "705": "SVN",
+        "710": "RSA",
+        "724": "ESP",
+        "764": "THA",
+        "784": "UAE",
+        "788": "TUN",
+        "792": "TUR",
+        "804": "UKR",
+        "860": "UZB",
+        "862": "VEN",
+        "887": "YEM",
+        "894": "ZAM",
+  "716": "ZIM",
+  "4": "AFG",
+  "8": "ALB",
+  "12": "ALG",
+  "20": "AND",
+  "24": "AGO",
+  "32": "ARG",
+  "44": "BHS",
+  "50": "BGD",
+  "51": "ARM",
+  "52": "BRB",
+  "56": "BEL",
+  "68": "BOL",
+  "70": "BIH",
+  "72": "BWA",
+  "100": "BGR",
+  "104": "MMR",
+  "112": "BLR",
+  "120": "CMR",
+  "152": "CHL",
+  "170": "COL",
+  "178": "COG",
+  "188": "CRI",
+  "191": "HRV",
+  "196": "CYP",
+  "231": "ETH",
+  "233": "EST",
+  "242": "FJI",
+  "246": "FIN",
+  "288": "GHA",
+  "308": "GRD",
+  "320": "GTM",
+  "324": "GIN",
+  "332": "HTI",
+  "340": "HND",
+  "368": "IRQ",
+  "384": "CIV",
+  "398": "KAZ",
+  "400": "JOR",
+  "414": "KWT",
+  "426": "LSO",
+  "430": "LBR",
+  "454": "MWI",
+  "466": "MLI",
+  "470": "MLT",
+  "478": "MRT",
+  "480": "MUS",
+  "496": "MGL",
+  "504": "MAR",
+  "524": "NEP",
+  "528": "NED",
+  "566": "NGR",
+  "586": "PAK",
+  "600": "PRY",
+  "604": "PER",
+  "608": "PHI",
+  "620": "PRT",
+  "643": "RUS",
+  "682": "KSA",
+  "686": "SEN",
+  "706": "SOM",
+  "740": "SUR",
+  "764": "THA",
+  "768": "TGO",
+  "784": "UAE",
+  "788": "TUN",
+  "792": "TUR",
+  "800": "UGA",
+  "834": "TZA",
+  "854": "BFA",
+  "858": "URY",
+  "860": "UZB",
+  "862": "VEN",
+  "887": "YEM",
+  "894": "ZAM",
+  "716": "ZIM",
+  "072": "BOT",
+  "854": "BUR",
+  "262": "DJI",
+  "818": "EGY",
+"232": "ERI",
+"266": "GAB",
+"404": "KEN",
+"508": "MOZ",
+"480": "MRI",
+"516": "NAM",
+"566": "NIG",
+"729": "SUD",
+"768": "TOG",
+"31": "AZE",
+"40": "AUT",
+"60": "BER",
+"96": "BRN",
+"108": "BDI",
+"132": "CPV",
+"152": "CHI",
+"158": "TPE",
+"188": "CRC",
+"192": "CUB",
+"200": "TCH",
+"212": "DMA",
+"214": "DOM",
+"218": "ECU",
+"232": "ERI",
+"262": "DJI",
+"266": "GAB",
+"268": "EUN",  // OR GEO
+"278": "GDR",
+"280": "FRG",
+"308": "GRN",
+"308": "GRN",
+"344": "HKG",
+"352": "ISL",
+"356": "IND",
+"360": "INA",
+"372": "IRL",
+"388": "JAM",
+"404": "KEN",
+"408": "PRK",
+"499": "MNE",
+"508": "MOZ",
+"516": "NAM",
+"530": "AHO",
+"591": "PAN",
+"616": "POL",
+"630": "PUR",
+"634": "QAT",
+"662": "LCA",
+"674": "SMR",
+"704": "VIE",
+"760": "SYR",
+"762": "TJK",
+"780": "TTO",
+"795": "TKM",
+"807": "MKD",
+"810": "URS",
+"818": "EGY",
+"850": "ISV",
+"858": "URU",
+"890": "YUG",
+"891": "SCG",
+"997": "AIN",
+"998": "EOR",
+"999": "IOA"};
+    
+    const svgMap = d3.select("#map").append("svg").attr("width", width).attr("height", height);
+    const projection = d3.geoNaturalEarth1().scale(160).translate([width / 2, height / 2]);
+    const path = d3.geoPath().projection(projection);
+    const gMap = svgMap.append("g");
+    const zoom = d3.zoom().scaleExtent([1, 8]).on("zoom", (event) => gMap.attr("transform", event.transform));
+    svgMap.call(zoom);
+    
+    const svgChart = d3.select("#chart svg"),
+          margin = {top: 30, right: 30, bottom: 50, left: 60},
+          chartWidth = +svgChart.attr("width") - margin.left - margin.right,
+          chartHeight = +svgChart.attr("height") - margin.top - margin.bottom,
+          gChart = svgChart.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+    
+    const x = d3.scalePoint().range([0, chartWidth]).padding(0.5);
+    const y = d3.scaleLinear().range([chartHeight, 0]);
+    const color = d3.scaleOrdinal(d3.schemeCategory10);
+    const line = d3.line().x(d => x(d.Year)).y(d => y(d.value));
+    const xAxis = gChart.append("g").attr("transform", `translate(0,${chartHeight})`);
+    const yAxis = gChart.append("g");
+    const tooltip = d3.select(".tooltip");
+    
+    let data;
+    let selectedCountries = new Set();
+    const svgMap2 = d3.select("#map2 svg").attr("width", width).attr("height", height);
+    const gMap2 = svgMap2.append("g");
+    let valueByNOC = {}; // global for tooltip
+    
+    Promise.all([
+      d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json"),
+      d3.csv("dataset_q1.csv")
+    ]).then(([worldData, csvData]) => {
+      data = csvData;
+      const countries = topojson.feature(worldData, worldData.objects.countries).features;
+    
+      gMap.selectAll("path")
+        .data(countries)
+        .enter().append("path")
+        .attr("class", "country")
+        .attr("d", path)
+        .on("click", function(event, d) {
+          const noc = nocMap[d.id];
+          if (!noc) return;
+          if (selectedCountries.has(noc)) {
+            selectedCountries.delete(noc);
+            d3.select(this).classed("selected", false);
+          } else {
+            selectedCountries.add(noc);
+            d3.select(this).classed("selected", true);
+          }
+          updateChart();
+          document.getElementById("chart").scrollIntoView({ behavior: "smooth" });
+        });
+    
+      selectedCountries.add("CHN");
+      gMap.selectAll("path").filter(d => nocMap[d.id] === "CHN").classed("selected", true);
+      updateChart();
+      d3.select("#medal").on("change", updateChart);
+    
+      drawMap2(countries);
+    
+      const years = Array.from(new Set(data.map(d => d.Year))).sort();
+      years.forEach(y => d3.select("#yearSelect").append("option").attr("value", y).text(y));
+      d3.select("#yearSelect").property("value", years[0]);
+      d3.select("#medalType2").property("value", "Total");
+      updateMap2();
+      d3.select("#yearSelect").on("change", updateMap2);
+      d3.select("#medalType2").on("change", updateMap2);
+    });
+    
+    function updateChart() {
+      const selectedMedal = d3.select("#medal").property("value");
+      const allData = [];
+      selectedCountries.forEach(country => {
+        const countryData = data.filter(d => d.NOC === country && d[selectedMedal] !== "")
+          .map(d => ({ Year: d.Year, value: +d[selectedMedal], NOC: d.NOC }));
+        allData.push({ country, values: countryData });
+      });
+      const allYears = Array.from(new Set(data.map(d => d.Year))).sort();
+      x.domain(allYears);
+      y.domain([0, d3.max(allData.flatMap(d => d.values.map(v => v.value))) || 10]);
+      xAxis.transition().call(d3.axisBottom(x).tickFormat(d3.format("d")));
+      yAxis.transition().call(d3.axisLeft(y));
+    
+      gChart.selectAll(".medal-line").remove();
+      gChart.selectAll(".medal-point").remove();
+    
+      allData.forEach(group => {
+        const c = color(group.country);
+        if (group.values.length > 1) {
+          const pathElement = gChart.append("path")
+            .datum(group.values)
+            .attr("class", `medal-line medal-line-${group.country}`)
+            .attr("fill", "none")
+            .attr("stroke", c)
+            .attr("stroke-width", 2)
+            .attr("d", line);
+          const totalLength = pathElement.node().getTotalLength();
+          pathElement.attr("stroke-dasharray", `${totalLength} ${totalLength}`)
+            .attr("stroke-dashoffset", totalLength)
+            .transition().duration(1000)
+            .attr("stroke-dashoffset", 0);
+        }
+    
+        gChart.selectAll(`.medal-point-${group.country}`)
+          .data(group.values)
+          .enter()
+          .append("circle")
+          .attr("class", `medal-point medal-point-${group.country}`)
+          .attr("cx", d => x(d.Year))
+          .attr("cy", d => y(d.value))
+          .attr("r", 5)
+          .attr("fill", c)
+          .on("mouseover", (event, d) => {
+            tooltip.transition().duration(200).style("opacity", 1);
+            tooltip.html(`<strong>${d.NOC}</strong><br>Year: ${d.Year}<br>Medals: ${d.value}`)
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 28) + "px");
+            gChart.selectAll(".medal-line").attr("opacity", 0.1);
+            gChart.selectAll(".medal-point").attr("opacity", 0.1);
+            gChart.selectAll(`.medal-line-${d.NOC}`).attr("opacity", 1).attr("stroke-width", 4);
+            gChart.selectAll(`.medal-point-${d.NOC}`).attr("opacity", 1).transition().duration(200).attr("r", 8);
+            d3.select(event.currentTarget).attr("stroke", "#000").attr("stroke-width", 2);
+          })
+          .on("mouseout", (event) => {
+            tooltip.transition().duration(300).style("opacity", 0);
+            gChart.selectAll(".medal-line").attr("opacity", 1).attr("stroke-width", 2);
+            gChart.selectAll(".medal-point").attr("opacity", 1).transition().duration(200).attr("r", 5);
+            d3.select(event.currentTarget).attr("stroke", "none");
+          });
+      });
+    }
+    
+    function drawMap2(countries) {
+      gMap2.selectAll("path")
+        .data(countries)
+        .enter()
+        .append("path")
+        .attr("class", "country2")
+        .attr("d", path)
+        .attr("fill", "#eee")
+        .attr("stroke", "#999")
+        .style("pointer-events", "all")
+        .on("mouseover", function(event, d) {
+          const noc = nocMap2[String(+d.id)];
+          if (!noc) return;
+          const value = valueByNOC[noc] || 0;
+          tooltip.transition().duration(200).style("opacity", 1);
+          tooltip.html(`<strong>${noc}</strong><br>Medals: ${value}`)
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 28) + "px");
+          d3.select(this).attr("stroke-width", 2).attr("stroke", "#000");
+        })
+        .on("mouseout", function() {
+          tooltip.transition().duration(300).style("opacity", 0);
+          d3.select(this).attr("stroke-width", 1).attr("stroke", "#999");
+        });
+    }
+    
+    function updateMap2() {
+      const year = +d3.select("#yearSelect").property("value");
+      const medalType = d3.select("#medalType2").property("value");
+      const yearData = data.filter(d => +d.Year === year);
+      valueByNOC = {}; // reset before repopulating
+      yearData.forEach(d => {
+        valueByNOC[d.NOC] = +d[medalType];
+      });
+    
+      const values = Object.values(valueByNOC);
+      const colorScale = d3.scaleSequential()
+        .domain([0, d3.max(values)])
+        .interpolator(d3.interpolateBlues);
+    
+      const top5 = Object.entries(valueByNOC)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(entry => entry[0]);
+    
+      gMap2.selectAll(".country2")
+        .transition().duration(500)
+        .attr("fill", d => {
+          const noc = nocMap2[String(+d.id)];
+          return noc && valueByNOC[noc] !== undefined ? colorScale(valueByNOC[noc]) : "#eee";
+        })
+        .attr("class", d => {
+          const noc = nocMap2[String(+d.id)];
+          return top5.includes(noc) ? "country2 glow" : "country2";
+        });
+    }
+    </script>
+</body>
+</html>
